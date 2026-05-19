@@ -1,6 +1,8 @@
-# Proyecto 4 — Pipeline serverless con Azure
+# 06 — Azure Pipeline: procesamiento serverless de documentos
 
-> Proyecto de nicho que aprovecha tu experiencia en cloud. Te diferencia de cualquier junior que solo sabe Vercel. Tiempo estimado: **1 semana**.
+> GitHub: [tech-marcos-rios/azure-pipeline](https://github.com/tech-marcos-rios/azure-pipeline)
+
+Proyecto de nicho que aprovecha experiencia en cloud. Te diferencia de cualquier junior que solo sabe Vercel. Tiempo estimado: **1 semana**. Estado: 📋 planificado.
 
 ## ¿Qué construir?
 
