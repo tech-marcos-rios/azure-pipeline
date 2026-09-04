@@ -81,6 +81,15 @@ Muy pocos freelance juniors pueden mostrar una arquitectura serverless real con 
 
 Si te interesa AWS en lugar de Azure, la arquitectura equivalente es S3 → Lambda → SQS → Lambda → S3 + DynamoDB. Conviene tener la versión Azure (más demandado en mercado hispano corporativo) pero podés portearlo a AWS después como bonus.
 
+## Git Flow (previsto)
+
+Todavía no hay código, pero cuando arranque sigue el mismo modelo que el resto del portafolio numerado:
+
+- `main` — producción, protegida (PR + CI en verde, sin push directo).
+- `develop` — integración, rama default del repo.
+- `feature/*` / `fix/*` / `chore/*` — ramas de trabajo, se mergean a `develop` vía PR.
+- `release/*` / `hotfix/*` — promueven `develop` a `main`.
+
 ## Costos esperados
 
 Si lo dejás corriendo con uso ocasional:
