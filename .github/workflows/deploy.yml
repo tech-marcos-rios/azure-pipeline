@@ -1,0 +1,74 @@
+name: Deploy Portfolio Ops
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore & Build api
+        run: dotnet build PortfolioOps.sln -c Release
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install & build web
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to Hetzner via SSH
+        uses: appleboy/ssh-action@v1
+        env:
+          MINISTOCK_DB_PASSWORD: ${{ secrets.MINISTOCK_DB_PASSWORD }}
+          KANBAN_DB_PASSWORD: ${{ secrets.KANBAN_DB_PASSWORD }}
+          AI_DOCS_DB_PASSWORD: ${{ secrets.AI_DOCS_DB_PASSWORD }}
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          envs: MINISTOCK_DB_PASSWORD,KANBAN_DB_PASSWORD,AI_DOCS_DB_PASSWORD
+          script: |
+            set -e
+            cd /opt/portfolio-ops
+            git fetch origin master
+            git reset --hard origin/master
+
+            # A diferencia de DB_PASSWORD en el resto del portfolio (generado una
+            # sola vez para la base propia del proyecto, nunca como secret de
+            # GitHub), estas tres son las passwords YA EXISTENTES de las bases de
+            # ministock/kanban/ai-docs — viven en secrets de GitHub y se
+            # sincronizan acá en cada deploy, para no tener que tocar el .env a
+            # mano si alguna se rota en su proyecto de origen.
+            for pair in "MINISTOCK_DB_PASSWORD:$MINISTOCK_DB_PASSWORD" "KANBAN_DB_PASSWORD:$KANBAN_DB_PASSWORD" "AI_DOCS_DB_PASSWORD:$AI_DOCS_DB_PASSWORD"; do
+              key="${pair%%:*}"
+              value="${pair#*:}"
+              if [ -z "$value" ]; then
+                echo "El secret $key no está seteado en GitHub — abortando el deploy."
+                exit 1
+              fi
+              if grep -q "^${key}=" deploy/.env; then
+                sed -i "s|^${key}=.*|${key}=${value}|" deploy/.env
+              else
+                echo "${key}=${value}" >> deploy/.env
+              fi
+            done
+
+            docker compose -f deploy/docker-compose.yml up --build -d
+            docker image prune -f

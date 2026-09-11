@@ -1,0 +1,25 @@
+FROM node:20-alpine AS deps
+WORKDIR /app
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+
+FROM node:20-alpine AS build
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY web/ .
+RUN npm run build
+
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+EXPOSE 3000
+
+# output: "standalone" (next.config.ts) arma un server.js mínimo con solo
+# los node_modules que se usan de verdad — no hace falta copiar node_modules
+# completo a la imagen final.
+COPY --from=build /app/public ./public
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+
+USER node
+CMD ["node", "server.js"]

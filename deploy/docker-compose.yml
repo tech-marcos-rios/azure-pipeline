@@ -1,0 +1,57 @@
+name: portfolio-ops
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5040:8080"
+    volumes:
+      # Solo lectura: introspección de contenedores/redes de los otros
+      # proyectos (estado, uptime, IP para conectar a cada Postgres).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Solo lectura: uso de disco real del host (dentro del contenedor,
+      # DriveInfo solo ve el filesystem propio del contenedor sin este mount).
+      - /:/host:ro
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      DockerHost: unix:///var/run/docker.sock
+      HostDiskPath: /host
+      # Passwords de las bases de cada proyecto monitoreado — mismas
+      # credenciales que ya usa cada API contra su propia base (no hay un rol
+      # de solo lectura separado en esta v1). Ver 06-azure-pipeline/CLAUDE.md.
+      ProjectSecrets__DbPasswords__ministock: ${MINISTOCK_DB_PASSWORD}
+      ProjectSecrets__DbPasswords__kanban: ${KANBAN_DB_PASSWORD}
+      ProjectSecrets__DbPasswords__ai-docs: ${AI_DOCS_DB_PASSWORD}
+    networks:
+      - default
+      - ministock_default
+      - kanban_default
+      - ai-docs_default
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5041:3000"
+    environment:
+      NODE_ENV: production
+      # Hostname interno de Compose (servicio "api" en la red "default" de
+      # este proyecto) — el browser nunca le habla directo a este contenedor,
+      # solo el server de Next.js (ver web/src/app/api/status/route.ts).
+      API_INTERNAL_URL: http://api:8080
+    depends_on:
+      - api
+
+networks:
+  default:
+  ministock_default:
+    external: true
+  kanban_default:
+    external: true
+  ai-docs_default:
+    external: true
