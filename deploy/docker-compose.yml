@@ -15,6 +15,17 @@ services:
       # Solo lectura: uso de disco real del host (dentro del contenedor,
       # DriveInfo solo ve el filesystem propio del contenedor sin este mount).
       - /:/host:ro
+    # El contenedor corre como usuario sin privilegios ($APP_UID, ver
+    # deploy/Dockerfile) — sin esto, aunque el socket esté montado, un
+    # SocketException "Permission denied" tumba cada llamada a Docker.DotNet:
+    # el dueño de /var/run/docker.sock es root:docker (GID visto en el host,
+    # que el bind mount conserva tal cual dentro del contenedor), y el
+    # usuario del proceso no pertenece a ese grupo. group_add agrega el GID
+    # del grupo "docker" del server (`getent group docker` en
+    # portfolio-hel1-1 — hoy 983) como grupo suplementario, sin correr el
+    # contenedor como root.
+    group_add:
+      - "983"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       DockerHost: unix:///var/run/docker.sock
