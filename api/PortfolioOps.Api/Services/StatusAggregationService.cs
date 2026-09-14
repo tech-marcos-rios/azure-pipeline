@@ -30,18 +30,36 @@ public sealed class StatusAggregationService(
     {
         secrets.Value.DbPasswords.TryGetValue(project.Id, out var password);
 
-        var healthTask = healthCheckService.CheckAsync(project.HealthUrl, ct);
+        var hasDatabase = project.DockerNetwork is not null && project.DbContainer is not null
+            && project.DbName is not null && project.DbUser is not null;
+
+        var healthTask = project.HealthUrl is not null
+            ? RunAsync(() => healthCheckService.CheckAsync(project.HealthUrl, ct))
+            : Task.FromResult<HealthCheckResult?>(null);
+
         var apiContainerTask = dockerStatusService.GetContainerStatusAsync(project.ApiContainer, ct);
-        var dbContainerTask = dockerStatusService.GetContainerStatusAsync(project.DbContainer, ct);
-        var databaseTask = databaseStatusService.GetStatusAsync(project, password, ct);
+
+        var dbContainerTask = project.DbContainer is not null
+            ? RunAsync(() => dockerStatusService.GetContainerStatusAsync(project.DbContainer, ct))
+            : Task.FromResult<ContainerStatus?>(null);
+
+        var databaseTask = hasDatabase
+            ? RunAsync(() => databaseStatusService.GetStatusAsync(project.DockerNetwork!, project.DbContainer!, project.DbName!, project.DbUser!, password, ct))
+            : Task.FromResult<DatabaseStatus?>(null);
 
         await Task.WhenAll(healthTask, apiContainerTask, dbContainerTask, databaseTask);
 
         return new ProjectStatus(
             project.Name,
+            project.Url,
             await healthTask,
             await apiContainerTask,
             await dbContainerTask,
             await databaseTask);
     }
+
+    // Envuelve una Task<T> en una Task<T?> — Task<T> no es covariante con
+    // Task<T?>, así que no se puede devolver directo donde el ternario de
+    // arriba espera el mismo tipo que la rama `null`.
+    private static async Task<T?> RunAsync<T>(Func<Task<T>> action) => await action();
 }

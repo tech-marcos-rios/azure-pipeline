@@ -1,4 +1,5 @@
-import type { ContainerStatus, DatabaseStatus, ProjectStatus } from "@/lib/types";
+import { ExternalLink } from "lucide-react";
+import type { ContainerStatus, DatabaseStatus, HealthState, ProjectStatus } from "@/lib/types";
 import { formatBytes, formatUptime } from "@/lib/format";
 import { StatusBadge } from "./StatusBadge";
 
@@ -29,6 +30,14 @@ function containerLabel(container: ContainerStatus): string {
   return translateError(container.error, "no encontrado");
 }
 
+// Proyectos sin health HTTP (workers de fondo sin puertos) no tienen un
+// HealthState propio del backend — se deriva uno del estado del contenedor
+// para que la card siga mostrando un semáforo con sentido.
+function effectiveHealthState(project: ProjectStatus): HealthState {
+  if (project.health) return project.health.state;
+  return project.apiContainer.found && project.apiContainer.state === "running" ? "Healthy" : "Unhealthy";
+}
+
 function DetailRow({ label, dotColor, detail }: { label: string; dotColor: string; detail: string }) {
   return (
     <div className="flex items-center justify-between py-1.5 text-sm">
@@ -49,25 +58,43 @@ function databaseDetail(database: DatabaseStatus): string {
 }
 
 export function ProjectCard({ project }: { project: ProjectStatus }) {
+  const hasDatabase = project.dbContainer !== null && project.database !== null;
+
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-zinc-900 dark:text-zinc-50">{project.name}</h2>
-        <StatusBadge state={project.health.state} />
+        <a
+          href={project.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 font-semibold text-zinc-900 hover:underline dark:text-zinc-50"
+        >
+          {project.name}
+          <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+        </a>
+        <StatusBadge state={effectiveHealthState(project)} />
       </div>
 
-      {project.health.responseTimeMs !== null && (
+      {project.health?.responseTimeMs != null && (
         <p className="mt-0.5 text-xs text-zinc-400">{project.health.responseTimeMs} ms</p>
       )}
 
       <div className="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800">
-        <DetailRow label="API" dotColor={containerDotColor(project.apiContainer)} detail={containerLabel(project.apiContainer)} />
-        <DetailRow label="Base de datos (contenedor)" dotColor={containerDotColor(project.dbContainer)} detail={containerLabel(project.dbContainer)} />
         <DetailRow
-          label="Base de datos (datos)"
-          dotColor={project.database.reachable ? "bg-emerald-500" : "bg-red-500"}
-          detail={databaseDetail(project.database)}
+          label={hasDatabase ? "API" : "Proceso"}
+          dotColor={containerDotColor(project.apiContainer)}
+          detail={containerLabel(project.apiContainer)}
         />
+        {project.dbContainer && (
+          <DetailRow label="Base de datos (contenedor)" dotColor={containerDotColor(project.dbContainer)} detail={containerLabel(project.dbContainer)} />
+        )}
+        {project.database && (
+          <DetailRow
+            label="Base de datos (datos)"
+            dotColor={project.database.reachable ? "bg-emerald-500" : "bg-red-500"}
+            detail={databaseDetail(project.database)}
+          />
+        )}
       </div>
     </div>
   );

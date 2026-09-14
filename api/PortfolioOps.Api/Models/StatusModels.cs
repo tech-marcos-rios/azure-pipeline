@@ -18,9 +18,14 @@ public sealed record DiskStatus(long TotalBytes, long FreeBytes, double UsedPerc
 
 public sealed record ProjectStatus(
     string Name,
-    HealthCheckResult Health,
+    string Url,
+    // Null cuando el proyecto no expone health HTTP / no tiene contenedor de
+    // base separado (p. ej. un worker de fondo sin puertos) — no es lo mismo
+    // que HealthState.Unknown, que significa "se chequeó y no se entendió el
+    // resultado". Acá directamente no aplica.
+    HealthCheckResult? Health,
     ContainerStatus ApiContainer,
-    ContainerStatus DbContainer,
-    DatabaseStatus Database);
+    ContainerStatus? DbContainer,
+    DatabaseStatus? Database);
 
 public sealed record PortfolioStatus(DateTimeOffset CheckedAt, DiskStatus Disk, IReadOnlyList<ProjectStatus> Projects);

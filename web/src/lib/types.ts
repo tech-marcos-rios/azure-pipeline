@@ -31,10 +31,13 @@ export interface DiskStatus {
 
 export interface ProjectStatus {
   name: string;
-  health: HealthCheckResult;
+  url: string;
+  // null cuando el proyecto no expone health HTTP / no tiene base propia
+  // (ej. un worker de fondo sin puertos) — no aplica, no "se rompió".
+  health: HealthCheckResult | null;
   apiContainer: ContainerStatus;
-  dbContainer: ContainerStatus;
-  database: DatabaseStatus;
+  dbContainer: ContainerStatus | null;
+  database: DatabaseStatus | null;
 }
 
 export interface PortfolioStatus {

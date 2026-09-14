@@ -1,5 +1,4 @@
 using Npgsql;
-using PortfolioOps.Api.Configuration;
 using PortfolioOps.Api.Models;
 
 namespace PortfolioOps.Api.Services;
@@ -7,12 +6,18 @@ namespace PortfolioOps.Api.Services;
 public sealed class PostgresStatusService(IDockerStatusService dockerStatusService, ILogger<PostgresStatusService> logger)
     : IDatabaseStatusService
 {
-    public async Task<DatabaseStatus> GetStatusAsync(MonitoredProjectOptions project, string? password, CancellationToken ct = default)
+    public async Task<DatabaseStatus> GetStatusAsync(
+        string dockerNetwork,
+        string dbContainer,
+        string dbName,
+        string dbUser,
+        string? password,
+        CancellationToken ct = default)
     {
         if (string.IsNullOrEmpty(password))
             return new DatabaseStatus(Reachable: false, SizeBytes: null, ActiveConnections: null, Error: "No password configured");
 
-        var ip = await dockerStatusService.GetContainerIpAddressAsync(project.DbContainer, project.DockerNetwork, ct);
+        var ip = await dockerStatusService.GetContainerIpAddressAsync(dbContainer, dockerNetwork, ct);
         if (ip is null)
             return new DatabaseStatus(Reachable: false, SizeBytes: null, ActiveConnections: null, Error: "Container not reachable on Docker network");
 
@@ -20,8 +25,8 @@ public sealed class PostgresStatusService(IDockerStatusService dockerStatusServi
         {
             Host = ip,
             Port = 5432,
-            Database = project.DbName,
-            Username = project.DbUser,
+            Database = dbName,
+            Username = dbUser,
             Password = password,
             Timeout = 3,
             CommandTimeout = 3
@@ -48,7 +53,7 @@ public sealed class PostgresStatusService(IDockerStatusService dockerStatusServi
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Postgres status check failed for {ProjectName}", project.Name);
+            logger.LogWarning(ex, "Postgres status check failed for {DbContainer}", dbContainer);
             return new DatabaseStatus(Reachable: false, SizeBytes: null, ActiveConnections: null, Error: ex.Message);
         }
     }

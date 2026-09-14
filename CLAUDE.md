@@ -16,6 +16,8 @@ Este archivo se carga automáticamente en cada sesión de Claude Code dentro de 
 
 ## Estado
 
+- [x] **Soporte para proyectos sin health HTTP / sin base de datos + links por proyecto** (2026-09-14) — sumado para poder monitorear `07-bot-market-mind` (worker de fondo sin puertos, sin Postgres). `MonitoredProjectOptions.HealthUrl`/`DockerNetwork`/`DbContainer`/`DbName`/`DbUser` pasaron a nullable; `ProjectStatus.Health`/`DbContainer`/`Database` también, y se agregó `Url` (obligatorio en todos — la app en vivo si tiene, el repo de GitHub si no). El frontend deriva el semáforo del estado del contenedor cuando no hay health HTTP (`effectiveHealthState` en `ProjectCard.tsx`), oculta las filas de base de datos cuando no aplican, y el nombre de cada card es ahora un link (`target="_blank"`) al `Url` configurado. Probado en browser real (Playwright) con los 4 proyectos, incluyendo el caso sin DB.
+
 - [x] **Backend** (`api/PortfolioOps.Api/`, .NET 8 Minimal API — no Clean Architecture de 4 capas, es herramienta interna) — implementado y probado localmente (2026-09-09). `GET /api/status` agrega, en paralelo, por cada proyecto de `appsettings.json:MonitoredProjects`:
   - **Health**: `HttpClient` GET al `/health` público de cada proyecto (`HttpHealthCheckService`) — probado en vivo contra los 3 proyectos reales, responden `Healthy`.
   - **Contenedores** (API y DB): estado + uptime vía `Docker.DotNet` contra el socket de Docker (`DockerStatusService.GetContainerStatusAsync`, `InspectContainerAsync`). Sin Docker corriendo localmente, falla en timeout de forma controlada (no tira la app) — pendiente de probar contra el socket real del server.
